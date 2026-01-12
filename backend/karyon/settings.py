@@ -125,3 +125,5 @@ STATIC_URL = "static/"
 # Media files (user uploads)
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+OPENAI_API_KEY = os.getenv("OPEN_AI_KEY")

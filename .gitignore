@@ -54,6 +54,7 @@ Thumbs.db
 
 # Project specific
 backend/media/videos/*
+backend/media/audio/*
 backend/media/frames/*
 backend/media/faiss_indexes/*
 !backend/media/.gitkeep
