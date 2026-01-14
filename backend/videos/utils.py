@@ -61,3 +61,51 @@ def transcribe_video(file_path):
         })
     
     return segments, audio_path
+
+def chunk_transcript(segments, target_duration=45):
+    """
+    Chunk transcript segments into larger chunks of approximately target_duration seconds.
+    Returns a list of chunked transcripts.
+    """
+    chunks = []
+    current_chunk = {
+        'text': '',
+        'start': None,
+        'end': None
+    }
+    
+    for seg in segments:
+        # Initialize first chunk
+        if current_chunk['start'] is None:
+            current_chunk['start'] = seg['start']
+
+        # Add segment to current chunk
+        current_chunk['text'] += seg['text'] + ' '
+        current_chunk['end'] = seg['end']
+
+        # Calculate chunk duration
+        chunk_duration = current_chunk['end'] - current_chunk['start']
+
+        # If chunk duration exceeds target, finalize and start new chunk
+        if chunk_duration >= target_duration:
+            chunks.append({
+                'text': current_chunk['text'].strip(),
+                'start': current_chunk['start'],
+                'end': current_chunk['end']
+            })
+
+            current_chunk = {
+                'text': '',
+                'start': None,
+                'end': None
+            }
+
+    # Add final chunk if it has content
+    if current_chunk['text']:
+        chunks.append({
+            'text': current_chunk['text'].strip(),
+            'start': current_chunk['start'],
+            'end': current_chunk['end']
+        })
+
+    return chunks

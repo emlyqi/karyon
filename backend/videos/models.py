@@ -26,3 +26,19 @@ class Video(models.Model):
     
     class Meta:
         ordering = ['-created_at']  # Newest first
+
+class TranscriptChunk(models.Model):
+    """Represents a chunk of transcribed text from a video."""
+    
+    video = models.ForeignKey(Video, related_name='chunks', on_delete=models.CASCADE)
+    chunk_id = models.IntegerField()
+    text = models.TextField()
+    start_time = models.FloatField()  # Start time in seconds
+    end_time = models.FloatField()    # End time in seconds
+    
+    def __str__(self):
+        return f"{self.video.title} - Chunk {self.chunk_id}"
+    
+    class Meta:
+        ordering = ['video', 'chunk_id']  # Order by start time
+        unique_together = ['video', 'chunk_id']  # Ensure unique chunk IDs per video

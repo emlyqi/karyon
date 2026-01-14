@@ -1,5 +1,5 @@
-from .models import Video
-from .utils import transcribe_video
+from .models import Video, TranscriptChunk
+from .utils import transcribe_video, chunk_transcript
 import traceback
 
 def process_video(video_id):
@@ -21,9 +21,23 @@ def process_video(video_id):
         # Save results
         video.transcript_data = segments
         video.audio_file = audio_path.replace('media/', '')  # Save relative path
-        video.status = 'ready'
         video.save()
         
+        # Chunk transcript and save chunks
+        chunks = chunk_transcript(segments, target_duration=45)
+
+        for idx, chunk in enumerate(chunks):
+            TranscriptChunk.objects.create(
+                video=video,
+                chunk_id=idx,
+                text=chunk['text'],
+                start_time=chunk['start'],
+                end_time=chunk['end']
+            )
+
+        video.status = 'ready'
+        video.save()
+
         print(f"✓ Video {video_id} transcribed successfully!")
         
     except Exception as e:
