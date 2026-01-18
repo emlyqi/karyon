@@ -3,7 +3,6 @@ from django.conf import settings
 from pydub import AudioSegment
 import os
 
-
 def extract_audio(video_path, output_dir='media/audio'):
     """
     Extract audio from video file and save as MP3.
@@ -22,7 +21,6 @@ def extract_audio(video_path, output_dir='media/audio'):
     video.export(audio_path, format="mp3", bitrate="32k")  # Low bitrate for smaller files
     
     return audio_path
-
 
 def transcribe_video(file_path):
     """

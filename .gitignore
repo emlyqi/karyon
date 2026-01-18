@@ -58,3 +58,5 @@ backend/media/audio/*
 backend/media/frames/*
 backend/media/faiss_indexes/*
 !backend/media/.gitkeep
+faiss_index.bin
+chunk_mapping.json
