@@ -2,6 +2,8 @@ from openai import OpenAI
 from django.conf import settings
 from pydub import AudioSegment
 import os
+from sentence_transformers import SentenceTransformer
+import numpy as np
 
 def extract_audio(video_path, output_dir='media/audio'):
     """
@@ -60,50 +62,92 @@ def transcribe_video(file_path):
     
     return segments, audio_path
 
-def chunk_transcript(segments, target_duration=45):
+def chunk_transcript(segments, min_duration=15, max_duration=90, similarity_threshold=0.70):
     """
-    Chunk transcript segments into larger chunks of approximately target_duration seconds.
-    Returns a list of chunked transcripts.
+    Chunk transcript segments semantically using topic anchor comparison.
+    Each segment is compared against the chunk's first segment (anchor).
+    
+    Args:
+        segments: List of transcript segments with text, start, end
+        min_duration: Minimum chunk duration (default: 15s)
+        max_duration: Maximum chunk duration (default: 90s)  
+        similarity_threshold: Topic change threshold (default: 0.70)
+        
+    Returns:
+        List of chunks with text, start, end, and original segments
     """
+
+    if not segments:
+        return []
+    
+    # Embed all segments once
+    model = SentenceTransformer('all-MiniLM-L6-v2')
+    segment_texts = [seg['text'] for seg in segments]
+    segment_embeddings = model.encode(segment_texts, show_progress_bar=False)
+
+    # Normalize embeddings for cosine similarity
+    segment_embeddings = segment_embeddings / np.linalg.norm(segment_embeddings, axis=1, keepdims=True)
+
     chunks = []
     current_chunk = {
         'text': '',
         'start': None,
-        'end': None
+        'end': None,
+        'anchor_embedding': None,
+        'segments': []
     }
-    
-    for seg in segments:
+
+    for i, seg in enumerate(segments):
         # Initialize first chunk
         if current_chunk['start'] is None:
             current_chunk['start'] = seg['start']
+            current_chunk['text'] = seg['text'] + ' '
+            current_chunk['end'] = seg['end']
+            current_chunk['anchor_embedding'] = segment_embeddings[i]
+            current_chunk['segments'].append(seg)
+            continue
 
-        # Add segment to current chunk
-        current_chunk['text'] += seg['text'] + ' '
-        current_chunk['end'] = seg['end']
-
-        # Calculate chunk duration
         chunk_duration = current_chunk['end'] - current_chunk['start']
 
-        # If chunk duration exceeds target, finalize and start new chunk
-        if chunk_duration >= target_duration:
+        # Compute cosine similarity with anchor
+        seg_embedding = segment_embeddings[i]
+        similarity = np.dot(current_chunk['anchor_embedding'], seg_embedding)
+
+        should_start_new_chunk = False
+        if chunk_duration >= max_duration:
+            should_start_new_chunk = True
+        elif chunk_duration >= min_duration and similarity < similarity_threshold:
+            should_start_new_chunk = True
+
+        if should_start_new_chunk:
+            # Finalize current chunk
             chunks.append({
                 'text': current_chunk['text'].strip(),
                 'start': current_chunk['start'],
-                'end': current_chunk['end']
+                'end': current_chunk['end'],
+                'segments': current_chunk['segments'].copy()
             })
-
+            # Start new chunk
             current_chunk = {
-                'text': '',
-                'start': None,
-                'end': None
+                'text': seg['text'] + ' ',
+                'start': seg['start'],
+                'end': seg['end'],
+                'anchor_embedding': seg_embedding,
+                'segments': [seg]
             }
+        else:
+            # Continue current chunk
+            current_chunk['text'] += seg['text'] + ' '
+            current_chunk['end'] = seg['end']
+            current_chunk['segments'].append(seg)
 
-    # Add final chunk if it has content
-    if current_chunk['text']:
+    # Add the last chunk if it has content
+    if current_chunk['segments']:
         chunks.append({
             'text': current_chunk['text'].strip(),
             'start': current_chunk['start'],
-            'end': current_chunk['end']
+            'end': current_chunk['end'],
+            'segments': current_chunk['segments']
         })
-
+    
     return chunks

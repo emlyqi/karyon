@@ -27,7 +27,7 @@ def embed_chunks(chunks):
     texts = [chunk.text for chunk in chunks]
     return model.encode(texts, batch_size=32, show_progress_bar=True).tolist()
 
-def search_chunks(query, top_k=5):
+def search_chunks(query, top_k=5, max_distance=1.5):
     """
     Search for the most relevant transcript chunks given a query.
     Returns a list of (chunk, distance) tuples sorted by similarity.
@@ -58,8 +58,45 @@ def search_chunks(query, top_k=5):
     # Convert FAISS positions back to TranscriptChunk objects
     results = []
     for dist, idx in zip(distances[0], indices[0]):
+        if dist > max_distance:
+            continue
         chunk_id = chunk_mapping[str(idx)]
         chunk = TranscriptChunk.objects.get(id=chunk_id)
         results.append((chunk, float(dist)))
     
     return results
+
+def find_best_segment(chunk, query):
+    """
+    Find the most relevant segment within a chunk for a given query.
+    
+    Args:
+        chunk: TranscriptChunk object
+        query: User's question
+        
+    Returns:
+        Best matching segment dict with text, start, end
+    """
+    if not chunk.segments:
+        return None
+    
+    # Embed query
+    query_embedding = embed_text(query)
+
+    # Embed all segments in the chunk
+    segment_texts = [seg['text'] for seg in chunk.segments]
+    segment_embeddings = model.encode(segment_texts, show_progress_bar=False)
+
+    # Calculate cosine similarities
+    query_vec = np.array(query_embedding)
+
+    similarities = []
+    for seg_emb in segment_embeddings:
+        similarity = np.dot(query_vec, seg_emb) / (
+            np.linalg.norm(query_vec) * np.linalg.norm(seg_emb)
+        )
+        similarities.append(similarity)
+
+    # Find the segment with highest similarity
+    best_idx = int(np.argmax(similarities))
+    return chunk.segments[best_idx]

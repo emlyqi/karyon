@@ -24,7 +24,7 @@ def process_video(video_id):
         video.save()
         
         # Chunk transcript and save chunks
-        chunks = chunk_transcript(segments, target_duration=45)
+        chunks = chunk_transcript(segments, min_duration=15, max_duration=90, similarity_threshold=0.70)
 
         for idx, chunk in enumerate(chunks):
             TranscriptChunk.objects.create(
@@ -32,7 +32,8 @@ def process_video(video_id):
                 chunk_id=idx,
                 text=chunk['text'],
                 start_time=chunk['start'],
-                end_time=chunk['end']
+                end_time=chunk['end'],
+                segments=chunk.get('segments', []) # .get() with default
             )
 
         video.status = 'ready'

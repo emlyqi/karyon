@@ -35,6 +35,7 @@ class TranscriptChunk(models.Model):
     text = models.TextField()
     start_time = models.FloatField()  # Start time in seconds
     end_time = models.FloatField()    # End time in seconds
+    segments = models.JSONField(default=list)
     
     def __str__(self):
         return f"{self.video.title} - Chunk {self.chunk_id}"
