@@ -2,7 +2,6 @@ from openai import OpenAI
 from django.conf import settings
 from pydub import AudioSegment
 import os
-from sentence_transformers import SentenceTransformer
 import numpy as np
 
 def extract_audio(video_path, output_dir='media/audio'):
@@ -151,3 +150,130 @@ def chunk_transcript(segments, min_duration=15, max_duration=90, similarity_thre
         })
     
     return chunks
+
+def answer_question(video, question, max_distance=1.5):
+    """
+    Answer a question about a video using RAG.
+
+    Args:
+        video: Video object
+        question: User's question
+        max_distance: Distance threshold for relevance
+        
+    Returns:
+        dict with answer, timestamp, confidence, and context
+    """
+    # Import here to avoid circular imports
+    from videos.embeddings import embed_text, find_best_segment, model
+    
+    # Step 1: Get all chunks for this video
+    video_chunks = list(video.chunks.all())
+    
+    if not video_chunks:
+        return {
+            'answer': "This video has no transcript chunks yet.",
+            'confidence': 'none',
+            'timestamp': None,
+            'context': []
+        }
+    
+    # Step 2: Embed the question and all chunks
+    question_embedding = np.array(embed_text(question))
+    chunk_texts = [chunk.text for chunk in video_chunks]
+    chunk_embeddings = model.encode(chunk_texts, show_progress_bar=False)
+    
+    # Step 3: Calculate L2 distances
+    distances = np.linalg.norm(chunk_embeddings - question_embedding, axis=1)
+    
+    # Step 4: Filter by max_distance and get top 5
+    valid_indices = np.where(distances <= max_distance)[0]
+    
+    if len(valid_indices) == 0:
+        return {
+            'answer': "I couldn't find relevant information in the video to answer your question.",
+            'confidence': 'none',
+            'timestamp': None,
+            'context': []
+        }
+    
+    # Sort by distance and take top 5
+    sorted_indices = valid_indices[np.argsort(distances[valid_indices])][:5]
+    relevant_chunks = [(video_chunks[i], float(distances[i])) for i in sorted_indices]
+
+    if not relevant_chunks:
+        return {
+            'answer': "I couldn't find relevant information in the video to answer your question.",
+            'confidence': 'none',
+            'timestamp': None,
+            'context': []
+        }
+    
+    # Step 2: Get best chunk and segment
+    best_chunk, distance = relevant_chunks[0]
+    best_segment = find_best_segment(best_chunk, question)
+
+    # Step 3: Determine confidence
+    if distance < 0.8:
+        confidence = 'high'
+    elif distance < 1.2:
+        confidence = 'medium'
+    else:
+        confidence = 'low'
+
+    # Step 4: Build context from top chunks
+    context_texts = []
+    for chunk, dist in relevant_chunks:
+        context_texts.append(f"[{chunk.start_time:.1f}s - {chunk.end_time:.1f}s]: {chunk.text}")
+    context = "\n\n".join(context_texts)
+
+    # Step 5: Build prompt
+    prompt = f"""
+        You are a helpful assistant that answers questions about video content.
+
+        Video: {video.title}
+
+        Context from the video transcript:
+        {context}
+
+        Question: {question}
+
+        Instructions:
+        - Answer based ONLY on the context provided
+        - Be concise and direct
+        - If the context doesn't contain enough information, say so
+        - Do not make up information
+
+        Answer:"""
+    
+    # Step 6: Get answer from OpenAI
+    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant that answers questions about video content."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.3,
+        max_tokens=300
+    )
+
+    answer_text = response.choices[0].message.content.strip()
+
+    # Step 7: Return results
+    return {
+        'answer': answer_text,
+        'confidence': confidence,
+        'timestamp': best_segment['start'] if best_segment else best_chunk.start_time,
+        'segment_text': best_segment['text'] if best_segment else None,
+        'distance': float(distance),
+        'context': [
+            {
+                'chunk_id': chunk.chunk_id,
+                'start': chunk.start_time,
+                'end': chunk.end_time,
+                'distance': float(dist)
+            } 
+            for chunk, dist in relevant_chunks
+        ]
+    }
