@@ -1,12 +1,15 @@
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from .models import Video
 from .serializers import VideoSerializer, QuerySerializer
 from .utils import answer_question 
 from concurrent.futures import ThreadPoolExecutor
 from .tasks import process_video
 
+@method_decorator(csrf_exempt, name='dispatch')
 class VideoViewSet(viewsets.ModelViewSet):
     """ViewSet for managing video uploads and retrievals."""
     
@@ -47,6 +50,7 @@ class VideoViewSet(viewsets.ModelViewSet):
         
         question = serializer.validated_data['question']
         max_distance = serializer.validated_data.get('max_distance', 1.5)
+        conversation_history = serializer.validated_data.get('conversation_history', [])
         
         # Check if video is ready
         if video.status != 'ready':
@@ -56,6 +60,6 @@ class VideoViewSet(viewsets.ModelViewSet):
             )
         
         # Get answer using RAG
-        answer = answer_question(video, question, max_distance=max_distance)
+        answer = answer_question(video, question, max_distance=max_distance, conversation_history=conversation_history)
 
         return Response(answer)

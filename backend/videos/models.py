@@ -7,6 +7,7 @@ class Video(models.Model):
     STATUS_CHOICES = [
         ('uploaded', 'Uploaded'),
         ('transcribing', 'Transcribing'),
+        ('chunking', 'Chunking'),
         ('ready', 'Ready'),
         ('failed', 'Failed'),
     ]
