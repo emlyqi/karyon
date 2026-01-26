@@ -1,14 +1,13 @@
 from rest_framework import serializers
 from .models import Video
 
-
 class VideoSerializer(serializers.ModelSerializer):
     """Serializer for the Video model."""
 
     class Meta:
         model = Video
-        fields = ['id', 'title', 'file', 'audio_file', 'status', 'transcript_data', 'created_at']
-        read_only_fields = ['id', 'status', 'audio_file', 'transcript_data', 'created_at']
+        fields = ['id', 'title', 'file', 'youtube_url', 'audio_file', 'status', 'transcript_data', 'error_message', 'created_at']
+        read_only_fields = ['id', 'status', 'audio_file', 'transcript_data', 'error_message', 'created_at']
 
     def to_representation(self, instance):
         """Override to return relative URLs and normalize status for frontend."""
@@ -21,7 +20,6 @@ class VideoSerializer(serializers.ModelSerializer):
         if data['status'] in ('transcribing', 'chunking'):
             data['status'] = 'processing'
         return data
-
 
 class QuerySerializer(serializers.Serializer):
     """Serializer for asking questions about a video transcript."""

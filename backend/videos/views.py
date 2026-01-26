@@ -7,7 +7,7 @@ from .models import Video
 from .serializers import VideoSerializer, QuerySerializer
 from .utils import answer_question 
 from concurrent.futures import ThreadPoolExecutor
-from .tasks import process_video
+from .tasks import process_video, process_youtube_video
 
 @method_decorator(csrf_exempt, name='dispatch')
 class VideoViewSet(viewsets.ModelViewSet):
@@ -20,12 +20,18 @@ class VideoViewSet(viewsets.ModelViewSet):
         """Override create to trigger transcription after upload."""
         response = super().create(request, *args, **kwargs)
         
-        # Get video ID from response
+        # Get video ID and object from response
         video_id = response.data['id']
+        video = Video.objects.get(id=video_id)
 
-        # Start background transcription
+        # Start background processing
         executor = ThreadPoolExecutor(max_workers=1)
-        executor.submit(process_video, video_id)
+
+        # Check if it's a YouTube URL or file upload
+        if video.youtube_url:
+            executor.submit(process_youtube_video, video_id)
+        else:
+            executor.submit(process_video, video_id)
         
         return response
     
