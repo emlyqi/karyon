@@ -234,7 +234,6 @@ def answer_question(video, question, max_distance=1.5, conversation_history=None
 
     # Step 5: Build prompt with conversation history
     conversation_context = ""
-    last_topic = ""
     if conversation_history:
         # Get last 10 messages for context
         recent_history = conversation_history[-10:]
@@ -243,33 +242,29 @@ def answer_question(video, question, max_distance=1.5, conversation_history=None
             role = "User" if msg.get('role') == 'user' else "Assistant"
             content = msg.get('content', '')
             conversation_context += f"{role}: {content}\n"
-            # Track the last topic discussed
-            if role == "Assistant" and len(content) > 50:
-                last_topic = content[:200]  # First 200 chars of last answer
-    
-    # Add context hint for follow-up questions
-    context_hint = ""
-    if last_topic and question.lower().strip() in ['tell me more', 'can you tell me more', 'more', 'elaborate', 'explain more']:
-        context_hint = f"\n\nNote: The user is asking for more information about: {last_topic[:100]}..."
     
     prompt = f"""
         You are a helpful assistant that answers questions about video content.
 
         Video: {video.title}
 
-        Context from the video transcript:
+        Context from the video transcript (with timestamps):
         {context}
-        {conversation_context}{context_hint}
-        
+        {conversation_context}
+
         Current Question: {question}
 
         Instructions:
-        - Answer based ONLY on the context provided
-        - Use the conversation history to understand follow-up questions and references (like "it", "that", "tell me more")
-        - If the user asks for more details, elaborate on the previous topic using the video context
-        - Be concise and direct
-        - If the context doesn't contain enough information, say so
-        - Do not make up information
+        - Answer based ONLY on what is explicitly stated in the context above
+        - Do not add your own examples, elaborations, or outside knowledge
+        - Be direct and conversational - skip formal introductions like "In the video..." or "The video mentions..."
+        - Use conversation history to understand the full context:
+          * Recognize when the user is correcting or clarifying their previous question
+          * Understand temporal references (early in video = low timestamps, end = high timestamps)
+          * Follow up naturally on previous answers when asked
+        - Provide detailed answers using only the information from the transcript
+        - If the context doesn't contain enough information, say so clearly
+        - Do NOT mention timestamps or time ranges in your answer - they are displayed separately by the UI
 
         Answer:"""
     
@@ -277,12 +272,12 @@ def answer_question(video, question, max_distance=1.5, conversation_history=None
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
     messages = [
-        {"role": "system", "content": "You are a helpful assistant that answers questions about video content. You maintain context from previous questions."}
+        {"role": "system", "content": "You are a helpful assistant that answers questions about video content. You must ONLY use information explicitly stated in the provided transcript - do not use your general knowledge or training data about the topic. Be direct and conversational - skip formal introductions. Use conversation history to understand the full context of questions, including follow-ups, corrections, and clarifications. Pay attention to timestamps in the context to understand where content appears, but never mention timestamps in your answers as they are displayed separately on the UI."}
     ]
     
     # Add recent conversation history to GPT messages
     if conversation_history:
-        for msg in conversation_history[-6:]:  # Last 3 exchanges
+        for msg in conversation_history[-10:]:  # Last 5 exchanges
             role = msg.get('role', 'user')
             content = msg.get('content', '')
             if role in ['user', 'assistant'] and content:
@@ -295,10 +290,10 @@ def answer_question(video, question, max_distance=1.5, conversation_history=None
     messages.append({"role": "user", "content": prompt})
 
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o",
         messages=messages,
         temperature=0.3,
-        max_tokens=300
+        max_tokens=600
     )
 
     answer_text = response.choices[0].message.content.strip()
