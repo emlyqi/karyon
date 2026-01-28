@@ -10,6 +10,7 @@ class Video(models.Model):
         ('downloading', 'Downloading'),
         ('transcribing', 'Transcribing'),
         ('chunking', 'Chunking'),
+        ('scanning', 'Scanning'),
         ('ready', 'Ready'),
         ('failed', 'Failed'),
     ]
@@ -58,3 +59,17 @@ class TranscriptChunk(models.Model):
     class Meta:
         ordering = ['video', 'chunk_id']  # Order by start time
         unique_together = ['video', 'chunk_id']  # Ensure unique chunk IDs per video
+
+class VideoFrame(models.Model):
+    """Extracted keyframe with visual analysis."""
+
+    video = models.ForeignKey(Video, related_name='frames', on_delete=models.CASCADE)
+    timestamp = models.FloatField()  # Timestamp in seconds
+    image = models.ImageField(upload_to='frames/', null=True, blank=True)
+    visual_context = models.TextField() # GPT-4o vision analysis of the frame
+
+    def __str__(self):
+        return f"{self.video.title} - Frame at {self.timestamp:.1f}s"
+
+    class Meta: 
+        ordering = ['video', 'timestamp']  # Order by timestamp

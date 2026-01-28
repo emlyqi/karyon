@@ -167,6 +167,7 @@ def answer_question(video, question, max_distance=1.5, conversation_history=None
     """
     # Import here to avoid circular imports
     from videos.embeddings import embed_text, find_best_segment
+    from videos.models import VideoFrame
     
     # Step 1: Get all chunks for this video
     video_chunks = list(video.chunks.all())
@@ -236,12 +237,26 @@ def answer_question(video, question, max_distance=1.5, conversation_history=None
     else:
         confidence = 'low'
 
-    # Step 4: Build context from top chunks
+    # Step 4: Build context from top chunks (transcript + visual)
     context_texts = []
     for chunk, dist in relevant_chunks:
-        context_texts.append(f"[{chunk.start_time:.1f}s - {chunk.end_time:.1f}s]: {chunk.text}")
+        chunk_context = f"[{chunk.start_time:.1f}s - {chunk.end_time:.1f}s]\n"
+        chunk_context += f"Spoken: {chunk.text}"
+        
+        # Find frames within this chunk's time range
+        frames = VideoFrame.objects.filter(
+            video=video,
+            timestamp__gte=chunk.start_time,
+            timestamp__lte=chunk.end_time
+        )
+        
+        if frames.exists():
+            visual_parts = [f.visual_context for f in frames]
+            chunk_context += f"\nOn screen: {' | '.join(visual_parts)}"
+        
+        context_texts.append(chunk_context)
     context = "\n\n".join(context_texts)
-
+    
     # Step 5: Build prompt with conversation history
     conversation_context = ""
     if conversation_history:
@@ -265,9 +280,12 @@ def answer_question(video, question, max_distance=1.5, conversation_history=None
         Current Question: {question}
 
         Instructions:
-        - Use the video transcript as your primary source - do not add examples or information not present in the video
-        - When the user asks what the video says or requests clarification, provide the information from the transcript
-        - When the user needs help applying concepts (calculations, derivations, explanations), use what's taught in the video to help them
+        - Use the video transcript AND visual context as your primary sources - do not add examples or information not present in the video
+        - When the user asks about something shown on screen (equations, code, diagrams), use the "On screen" visual content
+        - When the user asks what was said, use the "Spoken" transcription content  
+        - Visual content is especially useful for exact equations, code, and diagrams
+        - When the user asks what the video says or requests clarification, provide the information from the transcript and visual context as necessary
+        - When the user needs help applying concepts (calculations, derivations, explanations), use what's taught in the video and visual context to help them
         - Use proper formatting:
           * For equations, use LaTeX with single $ for inline math (e.g., $x^2$) and double $$ for block equations
           * For code, use triple backticks with language identifier (e.g., ```python)
@@ -285,7 +303,7 @@ def answer_question(video, question, max_distance=1.5, conversation_history=None
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
     messages = [
-        {"role": "system", "content": "You are a helpful assistant that answers questions about video content. You must ONLY use information explicitly stated in the provided transcript - do not use your general knowledge or training data about the topic. Be direct and conversational - skip formal introductions. Use conversation history to understand the full context of questions, including follow-ups, corrections, and clarifications. Pay attention to timestamps in the context to understand where content appears, but never mention timestamps in your answers as they are displayed separately on the UI."}
+        {"role": "system", "content": "You are a helpful assistant that answers questions about video content. You must ONLY use information explicitly stated in the provided transcript and visual context - do not use your general knowledge or training data about the topic. Be direct and conversational - skip formal introductions. Use conversation history to understand the full context of questions, including follow-ups, corrections, and clarifications. Pay attention to timestamps in the context to understand where content appears, but never mention timestamps in your answers as they are displayed separately on the UI."}
     ]
     
     # Add recent conversation history to GPT messages

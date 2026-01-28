@@ -6,8 +6,7 @@ export default function VideoLibrary({ videos, onSelectVideo, onRefresh }) {
 
   useEffect(() => {
     const hasProcessing = videos.some(v =>
-      v.status === 'uploaded' ||
-      v.status === 'processing'
+      v.status !== 'ready' && v.status !== 'failed'
     )
 
     if (hasProcessing) {

@@ -3,6 +3,7 @@ from .utils import transcribe_video, chunk_transcript
 import traceback
 from .youtube_utils import download_youtube_video, get_youtube_metadata
 from .embeddings import model
+from .vision_utils import process_video_frames
 
 def process_video(video_id):
     """
@@ -12,10 +13,9 @@ def process_video(video_id):
     try:
         video = Video.objects.get(id=video_id)
 
+        # Transcribe
         video.status = 'transcribing'
         video.save()
-
-        # Transcribe
         segments, audio_path = transcribe_video(video.file.path)
 
         video.transcript_data = segments
@@ -42,6 +42,11 @@ def process_video(video_id):
                 segments=chunk.get('segments', []),
                 embedding=chunk_embeddings[idx].tolist()  # Store embedding as list
             )
+
+        # Extract visual context from video frames
+        video.status = 'scanning'
+        video.save()
+        process_video_frames(video)
 
         video.status = 'ready'
         video.save()
