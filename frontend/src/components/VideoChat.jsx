@@ -11,6 +11,7 @@ export default function VideoChat({ video, onBack, initialMessages = [], onMessa
   const [messages, setMessages] = useState(initialMessages)
   const [question, setQuestion] = useState('')
   const [loading, setLoading] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [emptyPrompt] = useState(() => {
     const prompts = [
       "What do you wanna know today?",
@@ -27,6 +28,18 @@ export default function VideoChat({ video, onBack, initialMessages = [], onMessa
   })
   const playerRef = useRef(null)
   const messagesEndRef = useRef(null)
+  const menuRef = useRef(null)
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   if (!video) {
     return (
@@ -165,7 +178,38 @@ export default function VideoChat({ video, onBack, initialMessages = [], onMessa
 
       {/* Chat Interface */}
       <div className="bg-white border border-gray-200 p-6 flex flex-col h-[calc(100vh-12rem)] shadow-boxy">
-        <h3 className="text-base font-medium text-slate-800 mb-4 pb-3 border-b border-gray-100 font-mono-brand tracking-wider uppercase">Ask</h3>
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+          <h3 className="text-base font-medium text-slate-800 font-mono-brand tracking-wider uppercase">Ask</h3>
+          {messages.length > 0 && (
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <circle cx="12" cy="5" r="1.5" />
+                  <circle cx="12" cy="12" r="1.5" />
+                  <circle cx="12" cy="19" r="1.5" />
+                </svg>
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 top-8 bg-white border border-gray-200 shadow-boxy py-1 z-10">
+                  <button
+                    onClick={() => {
+                      if (confirm('Clear chat history?')) {
+                        setMessages([])
+                      }
+                      setMenuOpen(false)
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 whitespace-nowrap"
+                  >
+                    Clear chat history
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto mb-4 space-y-3">
@@ -202,7 +246,7 @@ export default function VideoChat({ video, onBack, initialMessages = [], onMessa
                             style={oneDark}
                             language={match[1]}
                             PreTag="div"
-                            className="text-xs my-2"
+                            className="text-xs"
                             {...props}
                           >
                             {String(children).replace(/\n$/, '')}
@@ -213,7 +257,7 @@ export default function VideoChat({ video, onBack, initialMessages = [], onMessa
                           </code>
                         )
                       },
-                      p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                      p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
                       ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
                       ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
                       li: ({ children }) => <li className="ml-2">{children}</li>,

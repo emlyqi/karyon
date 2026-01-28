@@ -184,6 +184,16 @@ def answer_question(video, question, max_distance=1.5, conversation_history=None
     question_embedding = np.array(embed_text(question))
 
     # Load pre-computed embeddings from database
+    # Check if embeddings exist (videos processed before embedding caching won't have them)
+    if video_chunks[0].embedding is None:
+        return {
+            'answer': "This video needs to be reprocessed to enable Q&A. Please delete and re-upload it.",
+            'confidence': 'none',
+            'timestamp': None,
+            'context': [],
+            'has_answer': False
+        }
+
     chunk_embeddings = np.array([np.array(chunk.embedding) for chunk in video_chunks])
 
     # Step 3: Calculate L2 distances
@@ -255,14 +265,17 @@ def answer_question(video, question, max_distance=1.5, conversation_history=None
         Current Question: {question}
 
         Instructions:
-        - Answer based ONLY on what is explicitly stated in the context above
-        - Do not add your own examples, elaborations, or outside knowledge
+        - Use the video transcript as your primary source - do not add examples or information not present in the video
+        - When the user asks what the video says or requests clarification, provide the information from the transcript
+        - When the user needs help applying concepts (calculations, derivations, explanations), use what's taught in the video to help them
+        - Use proper formatting:
+          * For equations, use LaTeX with single $ for inline math (e.g., $x^2$) and double $$ for block equations
+          * For code, use triple backticks with language identifier (e.g., ```python)
         - Be direct and conversational - skip formal introductions like "In the video..." or "The video mentions..."
         - Use conversation history to understand the full context:
           * Recognize when the user is correcting or clarifying their previous question
           * Understand temporal references (early in video = low timestamps, end = high timestamps)
           * Follow up naturally on previous answers when asked
-        - Provide detailed answers using only the information from the transcript
         - If the context doesn't contain enough information, say so clearly
         - Do NOT mention timestamps or time ranges in your answer - they are displayed separately by the UI
 

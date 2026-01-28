@@ -43,3 +43,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
   font-size: 14px;
 }
+
+/* Override KaTeX default spacing */
+.katex-display {
+  margin: 0.5em 0 !important;
+}
+
+.katex {
+  font-size: 1em !important;
+}
