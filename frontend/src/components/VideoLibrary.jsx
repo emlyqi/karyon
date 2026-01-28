@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 export default function VideoLibrary({ videos, onSelectVideo, onRefresh }) {
   const [selectedIds, setSelectedIds] = useState([])
-  const [deleteSuccess, setDeleteSuccess] = useState(false)
+  const [deleteSuccess, setDeleteSuccess] = useState(0)
 
   useEffect(() => {
     const hasProcessing = videos.some(v =>
@@ -48,15 +48,17 @@ export default function VideoLibrary({ videos, onSelectVideo, onRefresh }) {
 
   const handleDeleteSelected = async () => {
     if (selectedIds.length === 0) return
-    if (!confirm(`Delete ${selectedIds.length} video(s)?`)) return
+    const count = selectedIds.length
+    if (!confirm(`Delete ${count} ${count === 1 ? 'video' : 'videos'}?`)) return
 
     try {
+      const count = selectedIds.length
       await Promise.all(
         selectedIds.map(id => fetch(`/api/videos/${id}/`, { method: 'DELETE' }))
       )
       setSelectedIds([])
-      setDeleteSuccess(true)
-      setTimeout(() => setDeleteSuccess(false), 3000)
+      setDeleteSuccess(count)
+      setTimeout(() => setDeleteSuccess(0), 3000)
       onRefresh()
     } catch (error) {
       console.error('Delete failed:', error)
@@ -77,12 +79,12 @@ export default function VideoLibrary({ videos, onSelectVideo, onRefresh }) {
 
   return (
     <div className="bg-white border border-gray-200 p-6 shadow-boxy">
-      {deleteSuccess && (
+      {deleteSuccess > 0 && (
         <div className="mb-4 bg-emerald-50 border-l-4 border-emerald-500 p-3 flex items-center">
           <svg className="w-4 h-4 text-emerald-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <span className="text-xs text-emerald-900">Videos deleted successfully.</span>
+          <span className="text-xs text-emerald-900">{deleteSuccess === 1 ? 'Video' : 'Videos'} deleted successfully.</span>
         </div>
       )}
 

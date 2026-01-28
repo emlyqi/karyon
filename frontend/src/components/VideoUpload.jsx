@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import axios from 'axios'
 
 export default function VideoUpload({ onUploadComplete }) {
@@ -12,6 +12,19 @@ export default function VideoUpload({ onUploadComplete }) {
   const [dragActive, setDragActive] = useState(false)
   const [uploadSuccess, setUploadSuccess] = useState(false)
   const abortControllerRef = useRef(null)
+  const debounceTimerRef = useRef(null)
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
+  }, [])
 
   const handleDrag = (e) => {
     e.preventDefault()
@@ -80,18 +93,26 @@ export default function VideoUpload({ onUploadComplete }) {
     setYoutubeUrl(url)
     setTitle('') // Clear title when URL changes
 
+    // Clear any pending debounce timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+    }
+
     // Cancel previous fetch if URL is cleared or changed
     if (!url || (!url.includes('youtube.com') && !url.includes('youtu.be'))) {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
       }
       setFetchingMetadata(false)
+      return
     }
 
-    // Auto-fetch when a valid YouTube URL is detected
-    if (url && (url.includes('youtube.com/watch') || url.includes('youtu.be/'))) {
-      fetchYoutubeMetadata(url)
-    }
+    // Debounce: Wait 800ms after user stops typing before fetching
+    debounceTimerRef.current = setTimeout(() => {
+      if (url && (url.includes('youtube.com/watch') || url.includes('youtu.be/'))) {
+        fetchYoutubeMetadata(url)
+      }
+    }, 800)
   }
 
   const handleUpload = async () => {

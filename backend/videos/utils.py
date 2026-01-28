@@ -166,11 +166,11 @@ def answer_question(video, question, max_distance=1.5, conversation_history=None
         dict with answer, timestamp, confidence, and context
     """
     # Import here to avoid circular imports
-    from videos.embeddings import embed_text, find_best_segment, model
+    from videos.embeddings import embed_text, find_best_segment
     
     # Step 1: Get all chunks for this video
     video_chunks = list(video.chunks.all())
-    
+
     if not video_chunks:
         return {
             'answer': "This video has no transcript chunks yet.",
@@ -179,12 +179,13 @@ def answer_question(video, question, max_distance=1.5, conversation_history=None
             'context': [],
             'has_answer': False
         }
-    
-    # Step 2: Embed the question and all chunks
+
+    # Step 2: Embed the question and load stored chunk embeddings
     question_embedding = np.array(embed_text(question))
-    chunk_texts = [chunk.text for chunk in video_chunks]
-    chunk_embeddings = model.encode(chunk_texts, show_progress_bar=False)
-    
+
+    # Load pre-computed embeddings from database
+    chunk_embeddings = np.array([np.array(chunk.embedding) for chunk in video_chunks])
+
     # Step 3: Calculate L2 distances
     distances = np.linalg.norm(chunk_embeddings - question_embedding, axis=1)
     

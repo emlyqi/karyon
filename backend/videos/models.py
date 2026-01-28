@@ -43,13 +43,14 @@ class Video(models.Model):
 
 class TranscriptChunk(models.Model):
     """Represents a chunk of transcribed text from a video."""
-    
+
     video = models.ForeignKey(Video, related_name='chunks', on_delete=models.CASCADE)
     chunk_id = models.IntegerField()
     text = models.TextField()
     start_time = models.FloatField()  # Start time in seconds
     end_time = models.FloatField()    # End time in seconds
     segments = models.JSONField(default=list)
+    embedding = models.JSONField(null=True, blank=True)  # Cached embedding vector
     
     def __str__(self):
         return f"{self.video.title} - Chunk {self.chunk_id}"

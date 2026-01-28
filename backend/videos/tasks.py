@@ -2,6 +2,7 @@ from .models import Video, TranscriptChunk
 from .utils import transcribe_video, chunk_transcript
 import traceback
 from .youtube_utils import download_youtube_video, get_youtube_metadata
+from .embeddings import model
 
 def process_video(video_id):
     """
@@ -27,6 +28,10 @@ def process_video(video_id):
         # Chunk transcript
         chunks = chunk_transcript(segments, min_duration=15, max_duration=90, similarity_threshold=0.70)
 
+        # Generate embeddings for all chunks at once (batch processing)
+        chunk_texts = [chunk['text'] for chunk in chunks]
+        chunk_embeddings = model.encode(chunk_texts, show_progress_bar=False)
+
         for idx, chunk in enumerate(chunks):
             TranscriptChunk.objects.create(
                 video=video,
@@ -34,7 +39,8 @@ def process_video(video_id):
                 text=chunk['text'],
                 start_time=chunk['start'],
                 end_time=chunk['end'],
-                segments=chunk.get('segments', [])
+                segments=chunk.get('segments', []),
+                embedding=chunk_embeddings[idx].tolist()  # Store embedding as list
             )
 
         video.status = 'ready'
