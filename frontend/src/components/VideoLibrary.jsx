@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 export default function VideoLibrary({ videos, onSelectVideo, onRefresh }) {
   const [selectedIds, setSelectedIds] = useState([])
+  const [deleteSuccess, setDeleteSuccess] = useState(false)
 
   useEffect(() => {
     const hasProcessing = videos.some(v =>
@@ -54,6 +55,8 @@ export default function VideoLibrary({ videos, onSelectVideo, onRefresh }) {
         selectedIds.map(id => fetch(`/api/videos/${id}/`, { method: 'DELETE' }))
       )
       setSelectedIds([])
+      setDeleteSuccess(true)
+      setTimeout(() => setDeleteSuccess(false), 3000)
       onRefresh()
     } catch (error) {
       console.error('Delete failed:', error)
@@ -74,6 +77,15 @@ export default function VideoLibrary({ videos, onSelectVideo, onRefresh }) {
 
   return (
     <div className="bg-white border border-gray-200 p-6 shadow-boxy">
+      {deleteSuccess && (
+        <div className="mb-4 bg-emerald-50 border-l-4 border-emerald-500 p-3 flex items-center">
+          <svg className="w-4 h-4 text-emerald-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-xs text-emerald-900">Videos deleted successfully.</span>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-medium text-slate-800 font-mono-brand tracking-wider uppercase">Library</h2>
         <div className="flex items-center space-x-3">
@@ -108,8 +120,6 @@ export default function VideoLibrary({ videos, onSelectVideo, onRefresh }) {
             } ${
               video.status === 'ready'
                 ? 'cursor-pointer hover:border-orange-300 hover:shadow-boxy-hover hover:-translate-y-0.5'
-                : video.status === 'failed' || video.status === 'error'
-                ? 'opacity-75 cursor-not-allowed'
                 : 'opacity-75'
             }`}
             onClick={() => video.status === 'ready' && onSelectVideo(video.id)}
@@ -124,12 +134,33 @@ export default function VideoLibrary({ videos, onSelectVideo, onRefresh }) {
                     muted
                   />
                 ) : (
-                  <svg className="w-10 h-10 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                  <div className="flex flex-col items-center space-y-2">
+                    <svg className="w-10 h-10 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {video.youtube_url && (
+                      <span className="text-xs text-gray-400">Processing...</span>
+                    )}
+                  </div>
                 )}
               </div>
+
+              {video.youtube_url && (
+                <a
+                  href={video.youtube_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute top-2 left-2 bg-red-600 hover:bg-red-700 p-1.5 transition-all"
+                  title="Watch on YouTube"
+                >
+                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                  </svg>
+                </a>
+              )}
+
               <div className="absolute top-2 right-2">
                 <input
                   type="checkbox"

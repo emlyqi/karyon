@@ -17,7 +17,7 @@ class VideoSerializer(serializers.ModelSerializer):
         if instance.audio_file:
             data['audio_file'] = instance.audio_file.url
         # Map internal statuses to frontend-friendly values
-        if data['status'] in ('transcribing', 'chunking'):
+        if data['status'] in ('downloading', 'transcribing', 'chunking'):
             data['status'] = 'processing'
         return data
 

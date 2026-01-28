@@ -12,17 +12,23 @@ def download_youtube_video(url, video_id):
 
     # Configure yt_dlp options
     ydl_opts = {
-        'format': 'best[ext=mp4]/best', # Prefer mp4 format
+        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
         'outtmpl': os.path.join(output_dir, f'youtube_{video_id}_%(id)s.%(ext)s'),
         'quiet': False,
         'no_warnings': False,
+        'merge_output_format': 'mp4',  # Merge into mp4 if downloading separate video+audio
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android'],  # Use Android client which is more reliable
+            }
+        },
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(url, download=True)
             video_filename = ydl.prepare_filename(info_dict)
-            
+
             # Return relative path to MEDIA_ROOT
             relative_path = os.path.relpath(video_filename, settings.MEDIA_ROOT)
             return relative_path

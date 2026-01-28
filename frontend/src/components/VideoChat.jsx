@@ -1,5 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import axios from 'axios'
+import ReactMarkdown from 'react-markdown'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import 'katex/dist/katex.min.css'
 
 export default function VideoChat({ video, onBack, initialMessages = [], onMessagesChange }) {
   const [messages, setMessages] = useState(initialMessages)
@@ -121,10 +127,25 @@ export default function VideoChat({ video, onBack, initialMessages = [], onMessa
       {/* Video Player */}
       <div className="bg-white border border-gray-200 p-6 shadow-boxy">
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
-          <h2 className="text-sm text-slate-800 font-medium truncate mr-4">{video.title}</h2>
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <h2 className="text-sm text-slate-800 font-medium truncate">{video.title}</h2>
+            {video.youtube_url && (
+              <a
+                href={video.youtube_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 text-red-600 hover:text-red-700 transition-colors"
+                title="Watch on YouTube"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                </svg>
+              </a>
+            )}
+          </div>
           <button
             onClick={onBack}
-            className="text-gray-400 hover:text-gray-600 shrink-0"
+            className="text-gray-400 hover:text-gray-600 shrink-0 ml-4"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -167,7 +188,40 @@ export default function VideoChat({ video, onBack, initialMessages = [], onMessa
                     : 'bg-gray-50 text-gray-900 border border-gray-200'
                 }`}
               >
-                <p className="whitespace-pre-wrap">{msg.content}</p>
+                {msg.role === 'user' ? (
+                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                ) : (
+                  <ReactMarkdown
+                    remarkPlugins={[remarkMath]}
+                    rehypePlugins={[rehypeKatex]}
+                    components={{
+                      code({ node, inline, className, children, ...props }) {
+                        const match = /language-(\w+)/.exec(className || '')
+                        return !inline && match ? (
+                          <SyntaxHighlighter
+                            style={oneDark}
+                            language={match[1]}
+                            PreTag="div"
+                            className="text-xs my-2"
+                            {...props}
+                          >
+                            {String(children).replace(/\n$/, '')}
+                          </SyntaxHighlighter>
+                        ) : (
+                          <code className="bg-gray-800 text-orange-400 px-1 py-0.5 text-xs font-mono-brand" {...props}>
+                            {children}
+                          </code>
+                        )
+                      },
+                      p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                      ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+                      li: ({ children }) => <li className="ml-2">{children}</li>,
+                    }}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
+                )}
 
                 {msg.role === 'assistant' && msg.timestamp !== undefined && msg.has_answer !== false && (
                   <div className="mt-2 pt-2 border-t border-gray-200 space-y-2">
@@ -223,7 +277,7 @@ export default function VideoChat({ video, onBack, initialMessages = [], onMessa
           <button
             type="submit"
             disabled={loading || !question.trim()}
-            className="px-4 py-2 bg-orange-600 text-white disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-orange-600 disabled:hover:shadow-none enabled:hover:bg-orange-700 text-sm font-mono-brand tracking-wide transition-all enabled:hover:shadow-boxy-orange"
+            className="px-4 py-2 bg-orange-600 text-white disabled:opacity-50 disabled:hover:bg-orange-600 disabled:hover:shadow-none enabled:hover:bg-orange-700 text-sm font-mono-brand tracking-wide transition-all enabled:hover:shadow-boxy-orange"
           >
             Send
           </button>

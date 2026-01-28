@@ -29,17 +29,23 @@ function App() {
   // Save chat history to localStorage whenever it changes
   const saveChatHistory = useCallback((videoId, messages) => {
     setChatHistory(prev => {
-      const updated = { ...prev, [videoId]: messages }
-      // Only save if actually different
       const prevMessages = prev[videoId]
-      if (JSON.stringify(prevMessages) !== JSON.stringify(messages)) {
-        localStorage.setItem('chatHistory', JSON.stringify(updated))
+      // Only update if actually different
+      if (JSON.stringify(prevMessages) === JSON.stringify(messages)) {
+        return prev // Return same reference if nothing changed
       }
+      const updated = { ...prev, [videoId]: messages }
+      localStorage.setItem('chatHistory', JSON.stringify(updated))
       return updated
     })
   }, [])
 
   const selectedVideo = useMemo(() => videos.find(v => v.id === selectedVideoId), [videos, selectedVideoId]);
+
+  const handleMessagesChange = useCallback((messages) => {
+    saveChatHistory(selectedVideoId, messages)
+  }, [selectedVideoId, saveChatHistory])
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-orange-600">
@@ -56,18 +62,18 @@ function App() {
         {selectedVideoId == null ? (
           <div className="space-y-8">
             <VideoUpload onUploadComplete={fetchVideos} />
-            <VideoLibrary 
-              videos={videos} 
+            <VideoLibrary
+              videos={videos}
               onSelectVideo={setSelectedVideoId}
               onRefresh={fetchVideos}
             />
           </div>
         ) : (
-          <VideoChat 
+          <VideoChat
             video={selectedVideo}
             onBack={() => setSelectedVideoId(null)}
             initialMessages={chatHistory[selectedVideoId] || []}
-            onMessagesChange={(messages) => saveChatHistory(selectedVideoId, messages)}
+            onMessagesChange={handleMessagesChange}
           />
         )}
       </main>
