@@ -51,9 +51,14 @@ function App() {
       <header className="bg-orange-600">
         <div className="max-w-7xl mx-auto px-6 py-3">
           <div className="flex items-center justify-between">
-            <h1 className="text-sm font-bold text-white tracking-wider" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-              KARYON
-            </h1>
+            <div className="flex items-center gap-2">
+              <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5">
+                <path d="M20 2H4C2.9 2 2 2.9 2 4V16C2 17.1 2.9 18 4 18H8L12 22L16 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2Z" fill="white"/>
+              </svg>
+              <h1 className="text-sm font-bold text-white tracking-wider" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                KARYON
+              </h1>
+            </div>
           </div>
         </div>
       </header>

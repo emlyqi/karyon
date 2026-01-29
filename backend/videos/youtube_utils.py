@@ -26,10 +26,15 @@ def clean_youtube_url(url):
         return f"https://www.youtube.com/watch?v={video_id}"
     return url
 
-def download_youtube_video(url, video_id):
+def download_youtube_video(url, video_id, processing_mode='both'):
     """
     Downloads a YouTube video and saves it to the media/videos/ directory.
     Returns the file path of the downloaded video.
+
+    Args:
+        url: YouTube URL
+        video_id: Database video ID for filename
+        processing_mode: 'audio', 'visual', or 'both' - determines what to download
     """
     # Clean URL to remove playlist and other unnecessary parameters
     url = clean_youtube_url(url)
@@ -37,16 +42,30 @@ def download_youtube_video(url, video_id):
     output_dir = os.path.join(settings.MEDIA_ROOT, 'videos')
     os.makedirs(output_dir, exist_ok=True)
 
+    # Choose format based on processing mode
+    if processing_mode == 'audio':
+        # Audio only
+        format_str = 'bestaudio[ext=m4a]/bestaudio/best'
+        merge_format = 'm4a'
+    elif processing_mode == 'visual':
+        # Visual only
+        format_str = 'bestvideo[ext=mp4]/bestvideo/best'
+        merge_format = 'mp4'
+    else:
+        # Both
+        format_str = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
+        merge_format = 'mp4'
+
     # Configure yt_dlp options
     ydl_opts = {
-        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+        'format': format_str,
         'outtmpl': os.path.join(output_dir, f'youtube_{video_id}_%(id)s.%(ext)s'),
         'quiet': False,
         'no_warnings': False,
-        'merge_output_format': 'mp4',  # Merge into mp4 if downloading separate video+audio
+        'merge_output_format': merge_format,
         'extractor_args': {
             'youtube': {
-                'player_client': ['android'],  # Use Android client which is more reliable
+                'player_client': ['android'],
             }
         },
     }

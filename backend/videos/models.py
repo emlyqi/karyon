@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 
 class Video(models.Model):
     """Represents an uploaded video and its processing status."""
-    
+
     STATUS_CHOICES = [
         ('uploaded', 'Uploaded'),
         ('downloading', 'Downloading'),
@@ -14,8 +14,15 @@ class Video(models.Model):
         ('ready', 'Ready'),
         ('failed', 'Failed'),
     ]
-    
+
+    PROCESSING_MODE_CHOICES = [
+        ('audio', 'Audio Only'),
+        ('visual', 'Visual Only'),
+        ('both', 'Audio + Visual'),
+    ]
+
     title = models.CharField(max_length=200)
+    processing_mode = models.CharField(max_length=20, choices=PROCESSING_MODE_CHOICES, default='both')
     file = models.FileField(
         upload_to='videos/',
         validators=[FileExtensionValidator(allowed_extensions=['mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', 'wmv', 'm4v'])],

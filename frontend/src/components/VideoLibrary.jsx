@@ -187,6 +187,25 @@ export default function VideoLibrary({ videos, onSelectVideo, onRefresh }) {
 
               <div className="flex items-center justify-between">
                 {getStatusBadge(video.status)}
+                {video.status === 'ready' && (
+                  <div className="flex items-center gap-1">
+                    {(video.processing_mode === 'audio' || video.processing_mode === 'both' || !video.processing_mode) && (
+                      <span title="Audio analysis available">
+                        <svg className="w-3.5 h-3.5 text-gray-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                        </svg>
+                      </span>
+                    )}
+                    {(video.processing_mode === 'visual' || video.processing_mode === 'both' || !video.processing_mode) && (
+                      <span title="Visual analysis available">
+                        <svg className="w-3.5 h-3.5 text-gray-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               {video.status === 'processing' && (

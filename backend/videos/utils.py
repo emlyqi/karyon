@@ -152,84 +152,82 @@ def chunk_transcript(segments, min_duration=15, max_duration=90, similarity_thre
     
     return chunks
 
+def _find_relevant(items, get_embedding, question_embedding, max_distance, top_k=5):
+    """Rank items by embedding distance to question."""
+    if not items:
+        return None
+    if get_embedding(items[0]) is None:
+        return 'no_embeddings'
+    embeddings = np.array([np.array(get_embedding(item)) for item in items])
+    distances = np.linalg.norm(embeddings - question_embedding, axis=1)
+    valid = np.where(distances <= max_distance)[0]
+    if len(valid) == 0:
+        return []
+    sorted_idx = valid[np.argsort(distances[valid])][:top_k]
+    return [(items[i], float(distances[i])) for i in sorted_idx]
+
+
+def _no_answer(message):
+    return {
+        'answer': message,
+        'confidence': 'none',
+        'timestamp': None,
+        'context': [],
+        'has_answer': False
+    }
+
 def answer_question(video, question, max_distance=1.5, conversation_history=None):
     """
     Answer a question about a video using RAG with conversation context.
-
-    Args:
-        video: Video object
-        question: User's question
-        max_distance: Distance threshold for relevance
-        conversation_history: List of previous messages for context
-        
-    Returns:
-        dict with answer, timestamp, confidence, and context
     """
-    # Import here to avoid circular imports
     from videos.embeddings import embed_text, find_best_segment
     from videos.models import VideoFrame
-    
-    # Step 1: Get all chunks for this video
-    video_chunks = list(video.chunks.all())
 
-    if not video_chunks:
-        return {
-            'answer': "This video has no transcript chunks yet.",
-            'confidence': 'none',
-            'timestamp': None,
-            'context': [],
-            'has_answer': False
-        }
-
-    # Step 2: Embed the question and load stored chunk embeddings
+    mode = video.processing_mode or 'both'
     question_embedding = np.array(embed_text(question))
 
-    # Load pre-computed embeddings from database
-    # Check if embeddings exist (videos processed before embedding caching won't have them)
-    if video_chunks[0].embedding is None:
-        return {
-            'answer': "This video needs to be reprocessed to enable Q&A. Please delete and re-upload it.",
-            'confidence': 'none',
-            'timestamp': None,
-            'context': [],
-            'has_answer': False
-        }
+    # Find relevant items based on mode
+    if mode == 'visual':
+        items = list(VideoFrame.objects.filter(video=video).order_by('timestamp'))
+        results = _find_relevant(items, lambda f: f.embedding, question_embedding, max_distance)
+    else:
+        items = list(video.chunks.all())
+        results = _find_relevant(items, lambda c: c.embedding, question_embedding, max_distance)
 
-    chunk_embeddings = np.array([np.array(chunk.embedding) for chunk in video_chunks])
+    # Handle search errors
+    if results is None:
+        return _no_answer("This video has no visual analysis yet." if mode == 'visual' else "This video has no audio analysis yet.")
+    if results == 'no_embeddings':
+        return _no_answer("This video needs to be reprocessed to enable Q&A. Please delete and re-upload it.")
+    if results == []:
+        return _no_answer("I couldn't find relevant information in the video to answer your question.")
 
-    # Step 3: Calculate L2 distances
-    distances = np.linalg.norm(chunk_embeddings - question_embedding, axis=1)
-    
-    # Step 4: Filter by max_distance and get top 5
-    valid_indices = np.where(distances <= max_distance)[0]
-    
-    if len(valid_indices) == 0:
-        return {
-            'answer': "I couldn't find relevant information in the video to answer your question.",
-            'confidence': 'none',
-            'timestamp': None,
-            'context': [],
-            'has_answer': False
-        }
-    
-    # Sort by distance and take top 5
-    sorted_indices = valid_indices[np.argsort(distances[valid_indices])][:5]
-    relevant_chunks = [(video_chunks[i], float(distances[i])) for i in sorted_indices]
+    best_item, distance = results[0]
 
-    if not relevant_chunks:
-        return {
-            'answer': "I couldn't find relevant information in the video to answer your question.",
-            'confidence': 'none',
-            'timestamp': None,
-            'context': [],
-            'has_answer': False
-        }
-    
-    # Step 2: Get best chunk and segment
-    best_chunk, distance = relevant_chunks[0]
-    best_segment = find_best_segment(best_chunk, question)
+    # Build context and extract timestamp/segment
+    if mode == 'visual':
+        best_timestamp = best_item.timestamp
+        best_segment = None
+        context_texts = [f"[{f.timestamp:.1f}s] On screen: {f.visual_context}" for f, _ in results]
+    else:
+        best_segment = find_best_segment(best_item, question)
+        best_timestamp = best_segment['start'] if best_segment else best_item.start_time
+        context_texts = []
+        for chunk, dist in results:
+            chunk_context = f"[{chunk.start_time:.1f}s - {chunk.end_time:.1f}s]\nSpoken: {chunk.text}"
+            if mode == 'both':
+                frames = VideoFrame.objects.filter(
+                    video=video,
+                    timestamp__gte=chunk.start_time,
+                    timestamp__lte=chunk.end_time
+                )
+                if frames.exists():
+                    chunk_context += f"\nOn screen: {' | '.join(f.visual_context for f in frames)}"
+            context_texts.append(chunk_context)
 
-    # Step 3: Determine confidence
+    context = "\n\n".join(context_texts)
+
+    # Determine confidence
     if distance < 0.8:
         confidence = 'high'
     elif distance < 1.2:
@@ -237,27 +235,7 @@ def answer_question(video, question, max_distance=1.5, conversation_history=None
     else:
         confidence = 'low'
 
-    # Step 4: Build context from top chunks (transcript + visual)
-    context_texts = []
-    for chunk, dist in relevant_chunks:
-        chunk_context = f"[{chunk.start_time:.1f}s - {chunk.end_time:.1f}s]\n"
-        chunk_context += f"Spoken: {chunk.text}"
-        
-        # Find frames within this chunk's time range
-        frames = VideoFrame.objects.filter(
-            video=video,
-            timestamp__gte=chunk.start_time,
-            timestamp__lte=chunk.end_time
-        )
-        
-        if frames.exists():
-            visual_parts = [f.visual_context for f in frames]
-            chunk_context += f"\nOn screen: {' | '.join(visual_parts)}"
-        
-        context_texts.append(chunk_context)
-    context = "\n\n".join(context_texts)
-    
-    # Step 5: Build prompt with conversation history
+    # Build conversation context
     conversation_context = ""
     if conversation_history:
         # Get last 10 messages for context
@@ -265,27 +243,51 @@ def answer_question(video, question, max_distance=1.5, conversation_history=None
         conversation_context = "\n\nPrevious conversation:\n"
         for msg in recent_history[:-1]:  # Exclude the current question
             role = "User" if msg.get('role') == 'user' else "Assistant"
-            content = msg.get('content', '')
-            conversation_context += f"{role}: {content}\n"
-    
+            conversation_context += f"{role}: {msg.get('content', '')}\n"
+
+    # Mode-specific prompt config
+    source_config = {
+        'both': {
+            'label': "Context from the video (transcript + visual):",
+            'instructions': """- Use the video transcript AND visual context as your primary sources - do not add examples or information not present in the video
+        - When the user asks about something shown on screen (equations, code, diagrams), use the "On screen" visual content
+        - When the user asks what was said, use the "Spoken" transcription content
+        - Visual content is especially useful for exact equations, code, and diagrams
+        - When the user asks what the video says or requests clarification, provide the information from the transcript and visual context as necessary
+        - When the user needs help applying concepts (calculations, derivations, explanations), use what's taught in the video and visual context to help them""",
+        },
+        'visual': {
+            'label': "Visual context from the video (with timestamps):",
+            'instructions': """- Use the visual context as your primary source - do not add examples or information not present in the video
+        - When the user asks about something shown on screen, use the "On screen" visual content
+        - When the user asks what the video shows or requests clarification, provide the information from the visual context
+        - When the user needs help applying concepts (calculations, derivations, explanations), use what's shown in the video to help them
+        - Note: This video only has visual analysis available, no audio transcript""",
+        },
+        'audio': {
+            'label': "Context from the video transcript (with timestamps):",
+            'instructions': """- Use the video transcript as your primary source - do not add examples or information not present in the video
+        - When the user asks what was said, use the "Spoken" transcription content
+        - When the user asks what the video says or requests clarification, provide the information from the transcript
+        - When the user needs help applying concepts (calculations, derivations, explanations), use what's taught in the video to help them
+        - Note: This video only has audio/transcript analysis available, no visual content""",
+        },
+    }
+    config = source_config[mode]
+
     prompt = f"""
         You are a helpful assistant that answers questions about video content.
 
         Video: {video.title}
 
-        Context from the video transcript (with timestamps):
+        {config['label']}
         {context}
         {conversation_context}
 
         Current Question: {question}
 
         Instructions:
-        - Use the video transcript AND visual context as your primary sources - do not add examples or information not present in the video
-        - When the user asks about something shown on screen (equations, code, diagrams), use the "On screen" visual content
-        - When the user asks what was said, use the "Spoken" transcription content  
-        - Visual content is especially useful for exact equations, code, and diagrams
-        - When the user asks what the video says or requests clarification, provide the information from the transcript and visual context as necessary
-        - When the user needs help applying concepts (calculations, derivations, explanations), use what's taught in the video and visual context to help them
+        {config['instructions']}
         - Use proper formatting:
           * For equations, use LaTeX with single $ for inline math (e.g., $x^2$) and double $$ for block equations
           * For code, use triple backticks with language identifier (e.g., ```python)
@@ -298,52 +300,56 @@ def answer_question(video, question, max_distance=1.5, conversation_history=None
         - Do NOT mention timestamps or time ranges in your answer - they are displayed separately by the UI
 
         Answer:"""
-    
-    # Step 6: Get answer from OpenAI with conversation history
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
-    messages = [
-        {"role": "system", "content": "You are a helpful assistant that answers questions about video content. You must ONLY use information explicitly stated in the provided transcript and visual context - do not use your general knowledge or training data about the topic. Be direct and conversational - skip formal introductions. Use conversation history to understand the full context of questions, including follow-ups, corrections, and clarifications. Pay attention to timestamps in the context to understand where content appears, but never mention timestamps in your answers as they are displayed separately on the UI."}
-    ]
-    
-    # Add recent conversation history to GPT messages
+    # Get answer from OpenAI with conversation history
+    # System message: base + mode-specific note
+    system_base = "You are a helpful assistant that answers questions about video content. You must ONLY use information explicitly stated in the provided context - do not use your general knowledge or training data about the topic. Be direct and conversational - skip formal introductions. Use conversation history to understand the full context of questions, including follow-ups, corrections, and clarifications. Pay attention to timestamps in the context to understand where content appears, but never mention timestamps in your answers as they are displayed separately on the UI."
+    mode_notes = {
+        'both': '',
+        'visual': ' Note: This video only has visual analysis available, no audio transcript.',
+        'audio': ' Note: This video only has audio transcript available, no visual analysis.',
+    }
+
+    messages = [{"role": "system", "content": system_base + mode_notes[mode]}]
+
     if conversation_history:
         for msg in conversation_history[-10:]:  # Last 5 exchanges
             role = msg.get('role', 'user')
             content = msg.get('content', '')
             if role in ['user', 'assistant'] and content:
-                messages.append({
-                    "role": role,
-                    "content": content
-                })
-    
-    # Add the current prompt with context
+                messages.append({"role": role, "content": content})
+
     messages.append({"role": "user", "content": prompt})
 
+    client = OpenAI(api_key=settings.OPENAI_API_KEY)
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=messages,
         temperature=0.3,
         max_tokens=600
     )
-
     answer_text = response.choices[0].message.content.strip()
 
-    # Step 7: Return results
-    return {
+    # Build result
+    result = {
         'answer': answer_text,
         'confidence': confidence,
-        'timestamp': best_segment['start'] if best_segment else best_chunk.start_time,
-        'segment_text': best_segment['text'] if best_segment else None,
+        'timestamp': best_timestamp,
         'distance': float(distance),
         'has_answer': True,
-        'context': [
-            {
-                'chunk_id': chunk.chunk_id,
-                'start': chunk.start_time,
-                'end': chunk.end_time,
-                'distance': float(dist)
-            } 
-            for chunk, dist in relevant_chunks
-        ]
     }
+
+    if mode == 'visual':
+        result['segment_text'] = None
+        result['context'] = [
+            {'frame_id': f.id, 'timestamp': f.timestamp, 'distance': float(dist)}
+            for f, dist in results
+        ]
+    else:
+        result['segment_text'] = best_segment['text'] if best_segment else None
+        result['context'] = [
+            {'chunk_id': c.chunk_id, 'start': c.start_time, 'end': c.end_time, 'distance': float(d)}
+            for c, d in results
+        ]
+
+    return result

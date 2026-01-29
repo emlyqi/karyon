@@ -6,6 +6,7 @@ export default function VideoUpload({ onUploadComplete }) {
   const [file, setFile] = useState(null)
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [title, setTitle] = useState('')
+  const [processingMode, setProcessingMode] = useState('both')
   const [uploading, setUploading] = useState(false)
   const [fetchingMetadata, setFetchingMetadata] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -137,6 +138,7 @@ export default function VideoUpload({ onUploadComplete }) {
         const formData = new FormData()
         formData.append('file', file)
         formData.append('title', title)
+        formData.append('processing_mode', processingMode)
 
         await axios.post('/api/videos/', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
@@ -150,13 +152,15 @@ export default function VideoUpload({ onUploadComplete }) {
       } else {
         await axios.post('/api/videos/', {
           youtube_url: youtubeUrl,
-          title: title
+          title: title,
+          processing_mode: processingMode
         })
       }
 
       setFile(null)
       setYoutubeUrl('')
       setTitle('')
+      setProcessingMode('both')
       setProgress(0)
       setUploadSuccess(true)
       setTimeout(() => setUploadSuccess(false), 3000)
@@ -205,6 +209,54 @@ export default function VideoUpload({ onUploadComplete }) {
         >
           YouTube Link
         </button>
+      </div>
+
+      <div className="flex items-center gap-4 mb-4 text-sm">
+        <span className="text-gray-500">Process:</span>
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <input
+            type="radio"
+            name="processingMode"
+            value="both"
+            checked={processingMode === 'both'}
+            onChange={(e) => setProcessingMode(e.target.value)}
+            disabled={uploading}
+            className="accent-orange-600"
+          />
+          <span className={processingMode === 'both' ? 'text-gray-900' : 'text-gray-500'}>Audio + Visual</span>
+          <span className="relative group">
+            <svg className="w-3.5 h-3.5 text-gray-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 text-xs text-white bg-gray-800 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              May take a while depending on video length!
+            </span>
+          </span>
+        </label>
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <input
+            type="radio"
+            name="processingMode"
+            value="audio"
+            checked={processingMode === 'audio'}
+            onChange={(e) => setProcessingMode(e.target.value)}
+            disabled={uploading}
+            className="accent-orange-600"
+          />
+          <span className={processingMode === 'audio' ? 'text-gray-900' : 'text-gray-500'}>Audio only</span>
+        </label>
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <input
+            type="radio"
+            name="processingMode"
+            value="visual"
+            checked={processingMode === 'visual'}
+            onChange={(e) => setProcessingMode(e.target.value)}
+            disabled={uploading}
+            className="accent-orange-600"
+          />
+          <span className={processingMode === 'visual' ? 'text-gray-900' : 'text-gray-500'}>Visual only</span>
+        </label>
       </div>
 
       {uploadMode === 'file' && (
@@ -305,22 +357,32 @@ export default function VideoUpload({ onUploadComplete }) {
               <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
             </svg>
 
-            <div className="w-full space-y-2">
-              <label className="block text-xs font-medium text-gray-700">YouTube URL</label>
-              <input
-                type="url"
-                placeholder="https://www.youtube.com/watch?v=..."
-                value={youtubeUrl}
-                onChange={handleYoutubeUrlChange}
-                disabled={uploading}
-                className="w-full px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:border-orange-500"
-              />
-              {fetchingMetadata && (
-                <p className="text-xs text-gray-500 mt-1">Fetching video info...</p>
-              )}
-              {title && !fetchingMetadata && (
-                <p className="text-xs text-emerald-600 mt-1 font-medium">✓ {title}</p>
-              )}
+            <div className="w-full space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">YouTube URL</label>
+                <input
+                  type="url"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  value={youtubeUrl}
+                  onChange={handleYoutubeUrlChange}
+                  disabled={uploading}
+                  className="w-full px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:border-orange-500"
+                />
+                {fetchingMetadata && (
+                  <p className="text-xs text-gray-500 mt-1">Fetching video info...</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Title</label>
+                <input
+                  type="text"
+                  placeholder="Video title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  disabled={uploading || !title}
+                  className="w-full px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:border-orange-500 disabled:bg-gray-50 disabled:text-gray-400"
+                />
+              </div>
             </div>
 
             {uploading && (
