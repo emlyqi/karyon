@@ -27,7 +27,7 @@ export default function VideoChat({ video, onBack, initialMessages = [], onMessa
     return prompts[Math.floor(Math.random() * prompts.length)]
   })
   const playerRef = useRef(null)
-  const messagesEndRef = useRef(null)
+  const messagesContainerRef = useRef(null)
   const menuRef = useRef(null)
 
   // Close menu when clicking outside
@@ -57,7 +57,9 @@ export default function VideoChat({ video, onBack, initialMessages = [], onMessa
   }, [messages, onMessagesChange])
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+    }
   }
 
   useEffect(() => {
@@ -136,7 +138,7 @@ export default function VideoChat({ video, onBack, initialMessages = [], onMessa
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-2 lg:grid-rows-[1fr] gap-6 lg:h-[calc(100vh-8rem)]">
       {/* Video Player */}
       <div className="bg-white border border-gray-200 p-6 shadow-boxy">
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
@@ -194,7 +196,7 @@ export default function VideoChat({ video, onBack, initialMessages = [], onMessa
       </div>
 
       {/* Chat Interface */}
-      <div className="bg-white border border-gray-200 p-6 flex flex-col h-[calc(100vh-12rem)] shadow-boxy">
+      <div className="bg-white border border-gray-200 p-6 flex flex-col min-h-0 shadow-boxy">
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
           <h3 className="text-base font-medium text-slate-800 font-mono-brand tracking-wider uppercase">Ask</h3>
           {messages.length > 0 && (
@@ -229,7 +231,7 @@ export default function VideoChat({ video, onBack, initialMessages = [], onMessa
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto mb-4 space-y-3">
+        <div ref={messagesContainerRef} className="flex-1 overflow-y-auto min-h-0 mb-4 space-y-3">
           {messages.length === 0 && (
             <div className="text-center text-gray-400 mt-12 space-y-3 animate-fade-in">
               <div className="text-2xl animate-float">?</div>
@@ -322,7 +324,6 @@ export default function VideoChat({ video, onBack, initialMessages = [], onMessa
             </div>
           )}
 
-          <div ref={messagesEndRef} />
         </div>
 
         {/* Input */}

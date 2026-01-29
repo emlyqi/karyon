@@ -26,6 +26,21 @@ function App() {
     fetchVideos()
   }, [])
 
+  // Prevent page scroll when in chat view
+  useEffect(() => {
+    if (selectedVideoId != null) {
+      document.documentElement.style.overflow = 'hidden'
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.documentElement.style.overflow = ''
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.documentElement.style.overflow = ''
+      document.body.style.overflow = ''
+    }
+  }, [selectedVideoId])
+
   // Save chat history to localStorage whenever it changes
   const saveChatHistory = useCallback((videoId, messages) => {
     setChatHistory(prev => {
