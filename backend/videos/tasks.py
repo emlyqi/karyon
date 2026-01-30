@@ -5,7 +5,7 @@ from .youtube_utils import download_youtube_video, get_youtube_metadata
 from .embeddings import model
 from .vision_utils import process_video_frames
 
-def process_video(video_id):
+def process_video(video_id, openai_key=None):
     """
     Background task to process a video.
     Updates video status as it progresses.
@@ -19,7 +19,7 @@ def process_video(video_id):
         if mode in ('audio', 'both'):
             video.status = 'transcribing'
             video.save()
-            segments, audio_path = transcribe_video(video.file.path)
+            segments, audio_path = transcribe_video(video.file.path, openai_key=openai_key)
 
             video.transcript_data = segments
             video.audio_file = audio_path.replace('media/', '')
@@ -50,7 +50,7 @@ def process_video(video_id):
         if mode in ('visual', 'both'):
             video.status = 'scanning'
             video.save()
-            process_video_frames(video)
+            process_video_frames(video, openai_key=openai_key)
 
         video.status = 'ready'
         video.save()
@@ -65,7 +65,7 @@ def process_video(video_id):
         video.error_message = str(e)
         video.save()
 
-def process_youtube_video(video_id):
+def process_youtube_video(video_id, openai_key=None):
     """
     Background task to download and process a YouTube video.
     """
@@ -87,7 +87,7 @@ def process_youtube_video(video_id):
         print(f"Downloaded YouTube video to: {video_file_path}")
 
         # Proceed with normal processing
-        process_video(video_id)
+        process_video(video_id, openai_key=openai_key)
 
     except Exception as e:
         print(f"Error processing YouTube video {video_id}: {str(e)}")

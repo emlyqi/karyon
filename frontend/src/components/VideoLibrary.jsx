@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import api from '../api'
 
 export default function VideoLibrary({ videos, onSelectVideo, onRefresh }) {
   const [selectedIds, setSelectedIds] = useState([])
@@ -53,7 +54,7 @@ export default function VideoLibrary({ videos, onSelectVideo, onRefresh }) {
     try {
       const count = selectedIds.length
       await Promise.all(
-        selectedIds.map(id => fetch(`/api/videos/${id}/`, { method: 'DELETE' }))
+        selectedIds.map(id => api.delete(`/videos/${id}/`))
       )
       setSelectedIds([])
       setDeleteSuccess(count)

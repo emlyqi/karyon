@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import axios from 'axios'
+import api from '../api'
 
 export default function VideoUpload({ onUploadComplete }) {
   const [uploadMode, setUploadMode] = useState('file')
@@ -70,7 +70,7 @@ export default function VideoUpload({ onUploadComplete }) {
 
     setFetchingMetadata(true)
     try {
-      const response = await axios.post('/api/fetch-youtube-metadata/', {
+      const response = await api.post('/fetch-youtube-metadata/', {
         youtube_url: url
       }, {
         signal: abortControllerRef.current.signal
@@ -140,7 +140,7 @@ export default function VideoUpload({ onUploadComplete }) {
         formData.append('title', title)
         formData.append('processing_mode', processingMode)
 
-        await axios.post('/api/videos/', formData, {
+        await api.post('/videos/', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
           onUploadProgress: (progressEvent) => {
             const percentCompleted = Math.round(
@@ -150,7 +150,7 @@ export default function VideoUpload({ onUploadComplete }) {
           }
         })
       } else {
-        await axios.post('/api/videos/', {
+        await api.post('/videos/', {
           youtube_url: youtubeUrl,
           title: title,
           processing_mode: processingMode

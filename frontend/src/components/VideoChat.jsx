@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import axios from 'axios'
+import api from '../api'
 import ReactMarkdown from 'react-markdown'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
@@ -7,8 +7,8 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import 'katex/dist/katex.min.css'
 
-export default function VideoChat({ video, onBack, initialMessages = [], onMessagesChange }) {
-  const [messages, setMessages] = useState(initialMessages)
+export default function VideoChat({ video, onBack }) {
+  const [messages, setMessages] = useState([])
   const [question, setQuestion] = useState('')
   const [loading, setLoading] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -49,12 +49,25 @@ export default function VideoChat({ video, onBack, initialMessages = [], onMessa
     );
   }
 
-  // Save messages whenever they change
+  // Load chat history from DB
   useEffect(() => {
-    if (onMessagesChange) {
-      onMessagesChange(messages)
-    }
-  }, [messages, onMessagesChange])
+    if (!video) return
+    api.get(`/videos/${video.id}/chat/`)
+      .then(res => {
+        const msgs = (res.data.messages || []).map(m => ({
+          role: m.role,
+          content: m.content,
+          ...(m.sources?.confidence && {
+            confidence: m.sources.confidence,
+            timestamp: m.sources.timestamp,
+            segment_text: m.sources.segment_text,
+            has_answer: m.sources.has_answer,
+          })
+        }))
+        setMessages(msgs)
+      })
+      .catch(() => {})
+  }, [video])
 
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
@@ -77,7 +90,7 @@ export default function VideoChat({ video, onBack, initialMessages = [], onMessa
     setLoading(true)
 
     try {
-      const response = await axios.post(`/api/videos/${video.id}/ask/`, {
+      const response = await api.post(`/videos/${video.id}/ask/`, {
         question: question.trim(),
         conversation_history: updatedMessages.map(msg => ({
           role: msg.role,
@@ -101,7 +114,7 @@ export default function VideoChat({ video, onBack, initialMessages = [], onMessa
       console.error('Query failed:', error, error.response?.data)
       const errorMessage = {
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
+        content: error.response?.data?.error || 'Sorry, I encountered an error. Please try again.',
         confidence: 'low'
       }
       setMessages(prev => [...prev, errorMessage])
@@ -214,8 +227,9 @@ export default function VideoChat({ video, onBack, initialMessages = [], onMessa
               {menuOpen && (
                 <div className="absolute right-0 top-8 bg-white border border-gray-200 shadow-boxy py-1 z-10">
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       if (confirm('Clear chat history?')) {
+                        await api.delete(`/videos/${video.id}/chat/`).catch(() => {})
                         setMessages([])
                       }
                       setMenuOpen(false)

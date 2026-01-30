@@ -79,17 +79,18 @@ def extract_keyframes(video_path, threshold=15.0, min_interval=10.0):
     
     return keyframes
 
-def analyze_frame(frame_bytes):
+def analyze_frame(frame_bytes, openai_key=None):
     """
     Send a frame to GPT-4o for visual analysis.
-    
+
     Args:
         frame_bytes: JPEG image as bytes
-    
+        openai_key: User's OpenAI API key (falls back to settings)
+
     Returns:
         String description of visual content
     """
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = OpenAI(api_key=openai_key or settings.OPENAI_API_KEY)
     
     # Encode image to base64
     frame_b64 = base64.b64encode(frame_bytes).decode('utf-8')
@@ -128,41 +129,47 @@ def analyze_frame(frame_bytes):
 
     return response.choices[0].message.content.strip()
 
-def process_video_frames(video):
+def process_video_frames(video, openai_key=None):
     """
     Extract and analyze all keyframes for a video.
-    Creates VideoFrame objects in database.
-    
+    Creates VideoFrame objects in database with embeddings.
+
     Args:
         video: Video model instance
-    
+        openai_key: User's OpenAI API key (falls back to settings)
+
     Returns:
         Number of frames extracted
     """
-    from .models import VideoFrame # Import here to avoid circular dependency
+    from .models import VideoFrame
+    from .embeddings import model as embed_model
 
     video_path = video.file.path
     keyframes = extract_keyframes(video_path, threshold=15.0, min_interval=10.0)
-    
+
     frames_created = 0
     for timestamp, frame_bytes in keyframes:
         try:
             # Analyze frame with GPT-4o
-            visual_context = analyze_frame(frame_bytes)
+            visual_context = analyze_frame(frame_bytes, openai_key=openai_key)
 
             # Skip if nothing useful found
             if visual_context.count("None") >= 2:
                 continue
-    
+
+            # Embed the visual context text for semantic search
+            embedding = embed_model.encode(visual_context, show_progress_bar=False).tolist()
+
             # Create frame record
             frame = VideoFrame.objects.create(
                 video=video,
                 timestamp=timestamp,
-                visual_context=visual_context
+                visual_context=visual_context,
+                embedding=embedding
             )
 
             frames_created += 1
-            
+
         except Exception as e:
             print(f"Error processing frame at {timestamp:.1f}s: {str(e)}")
             continue

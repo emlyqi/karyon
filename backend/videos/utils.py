@@ -24,7 +24,7 @@ def extract_audio(video_path, output_dir='media/audio'):
     
     return audio_path
 
-def transcribe_video(file_path):
+def transcribe_video(file_path, openai_key=None):
     """
     Transcribe video using OpenAI Whisper API.
     Extracts audio first to reduce file size.
@@ -32,16 +32,16 @@ def transcribe_video(file_path):
     """
     # Extract audio from video
     audio_path = extract_audio(file_path)
-    
+
     # Check file size (25MB limit)
     file_size = os.path.getsize(audio_path)
     max_size = 25 * 1024 * 1024  # 25MB
-    
+
     if file_size > max_size:
         raise ValueError(f"Audio file too large: {file_size / 1024 / 1024:.1f}MB. Max: 25MB")
-    
+
     # Transcribe the audio
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = OpenAI(api_key=openai_key or settings.OPENAI_API_KEY)
     
     with open(audio_path, "rb") as audio_file:
         transcription = client.audio.transcriptions.create(
@@ -176,7 +176,7 @@ def _no_answer(message):
         'has_answer': False
     }
 
-def answer_question(video, question, max_distance=1.5, conversation_history=None):
+def answer_question(video, question, max_distance=1.5, conversation_history=None, openai_key=None):
     """
     Answer a question about a video using RAG with conversation context.
     """
@@ -321,7 +321,7 @@ def answer_question(video, question, max_distance=1.5, conversation_history=None
 
     messages.append({"role": "user", "content": prompt})
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = OpenAI(api_key=openai_key or settings.OPENAI_API_KEY)
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=messages,
