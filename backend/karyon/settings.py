@@ -166,7 +166,7 @@ OPENAI_API_KEY = os.getenv("OPEN_AI_KEY")
 
 # Production security settings
 if not DEBUG:
-    SECURE_SSL_REDIRECT = True
+    SECURE_SSL_REDIRECT = False  # Railway handles SSL at the edge
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_HSTS_SECONDS = 31536000
