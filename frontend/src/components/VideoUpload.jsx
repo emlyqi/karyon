@@ -134,13 +134,14 @@ export default function VideoUpload({ onUploadComplete }) {
     setProgress(0)
 
     try {
+      let response
       if (uploadMode === 'file') {
         const formData = new FormData()
         formData.append('file', file)
         formData.append('title', title)
         formData.append('processing_mode', processingMode)
 
-        await api.post('/videos/', formData, {
+        response = await api.post('/videos/', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
           onUploadProgress: (progressEvent) => {
             const percentCompleted = Math.round(
@@ -150,11 +151,15 @@ export default function VideoUpload({ onUploadComplete }) {
           }
         })
       } else {
-        await api.post('/videos/', {
+        response = await api.post('/videos/', {
           youtube_url: youtubeUrl,
           title: title,
           processing_mode: processingMode
         })
+      }
+
+      if (response.data?.status === 'failed' && response.data?.error_message) {
+        alert(response.data.error_message)
       }
 
       setFile(null)

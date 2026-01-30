@@ -30,10 +30,19 @@ class VideoViewSet(viewsets.ModelViewSet):
 
         # Get user's OpenAI API key
         from .encryption import decrypt
+        from django.conf import settings as django_settings
         profile = request.user.profile
         openai_key = None
         if profile.encrypted_openai_key:
             openai_key = decrypt(profile.encrypted_openai_key)
+
+        if not openai_key and not django_settings.OPENAI_API_KEY:
+            video.status = 'failed'
+            video.error_message = 'No OpenAI API key configured. Please add one in Settings.'
+            video.save()
+            response.data['status'] = 'failed'
+            response.data['error_message'] = video.error_message
+            return response
 
         # Start background processing
         executor = ThreadPoolExecutor(max_workers=1)
