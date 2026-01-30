@@ -1,5 +1,5 @@
 import { createContext, useContext, useState } from 'react'
-import axios from 'axios'
+import api from './api'
 
 const AuthContext = createContext(null)
 
@@ -11,7 +11,7 @@ export function AuthProvider({ children }) {
   const isAuthenticated = !!user
 
   const login = async (email, password) => {
-    const res = await axios.post('/api/auth/token/', {
+    const res = await api.post('/auth/token/', {
       username: email,
       password,
     })
@@ -24,7 +24,7 @@ export function AuthProvider({ children }) {
   }
 
   const signup = async (email, password) => {
-    const res = await axios.post('/api/auth/signup/', { email, password })
+    const res = await api.post('/auth/signup/', { email, password })
     const tokens = res.data.tokens
     localStorage.setItem('tokens', JSON.stringify(tokens))
 
