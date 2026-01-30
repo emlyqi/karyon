@@ -1,6 +1,6 @@
 # Karyon
 
-Video Q&A platform -- upload or link a video, ask questions about its content using AI-powered search over transcripts and frames.
+Chat with your lecture recordings [or really just any video] 
 
 ## Setup
 
