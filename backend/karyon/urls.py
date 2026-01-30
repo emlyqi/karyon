@@ -25,6 +25,14 @@ urlpatterns = [
     path("api/", include("videos.urls")),
 ]
 
-# Serve media files (user uploads) in all environments.
-# In a large-scale deployment, move to S3/R2 with django-storages instead.
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Serve media files
+# For large-scale deployments, move to S3/R2 with django-storages instead.
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+else:
+    # Django's static() helper is a no-op when DEBUG=False, so we add the view directly.
+    from django.views.static import serve
+    from django.urls import re_path
+    urlpatterns += [
+        re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
+    ]
