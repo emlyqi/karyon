@@ -10,10 +10,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Install Python deps (cached layer)
-# Install CPU-only PyTorch first (saves ~1.5GB vs default CUDA build)
 COPY requirements.txt .
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir -r requirements.txt
+# Install CPU-only PyTorch first (full torch is ~2GB with CUDA, CPU-only is ~200MB)
+# Then install everything else, skipping torch since it's already installed
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
+    grep -vi '^torch' requirements.txt | pip install --no-cache-dir -r /dev/stdin
 
 # Copy app code
 COPY . .
