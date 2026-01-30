@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import api from '../api'
 import { mediaUrl } from '../mediaUrl'
 import ReactMarkdown from 'react-markdown'
@@ -30,6 +30,7 @@ export default function VideoChat({ video, onBack }) {
   const playerRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const menuRef = useRef(null)
+  const videoSrc = useMemo(() => video ? mediaUrl(video.file) : null, [video?.id])
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -41,14 +42,6 @@ export default function VideoChat({ video, onBack }) {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
-
-  if (!video) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-sm text-gray-500">Loading video...</div>
-      </div>
-    );
-  }
 
   // Load chat history from DB
   useEffect(() => {
@@ -68,7 +61,15 @@ export default function VideoChat({ video, onBack }) {
         setMessages(msgs)
       })
       .catch(() => {})
-  }, [video])
+  }, [video?.id])
+
+  if (!video) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-sm text-gray-500">Loading video...</div>
+      </div>
+    );
+  }
 
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
@@ -201,8 +202,9 @@ export default function VideoChat({ video, onBack }) {
 
         <div className="aspect-video bg-gray-900 overflow-hidden border border-gray-200 shadow-boxy">
           <video
+            key={video.id}
             ref={playerRef}
-            src={mediaUrl(video.file)}
+            src={videoSrc}
             controls
             className="w-full h-full object-contain"
           />
