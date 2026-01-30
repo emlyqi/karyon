@@ -30,9 +30,41 @@ urlpatterns = [
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 else:
-    # Django's static() helper is a no-op when DEBUG=False, so we add the view directly.
-    from django.views.static import serve
+    # Custom media view with explicit range request support for video seeking.
+    import os, re as _re, mimetypes
+    from django.http import FileResponse, HttpResponse, Http404
     from django.urls import re_path
+
+    def serve_media(request, path):
+        fullpath = os.path.join(settings.MEDIA_ROOT, path)
+        if not os.path.isfile(fullpath):
+            raise Http404
+        content_type, _ = mimetypes.guess_type(fullpath)
+        content_type = content_type or 'application/octet-stream'
+        file_size = os.path.getsize(fullpath)
+
+        range_header = request.META.get('HTTP_RANGE')
+        if range_header:
+            match = _re.match(r'bytes=(\d+)-(\d*)', range_header)
+            if match:
+                start = int(match.group(1))
+                end = int(match.group(2)) if match.group(2) else file_size - 1
+                end = min(end, file_size - 1)
+                length = end - start + 1
+                f = open(fullpath, 'rb')
+                f.seek(start)
+                response = HttpResponse(f.read(length), status=206, content_type=content_type)
+                response['Content-Length'] = length
+                response['Content-Range'] = f'bytes {start}-{end}/{file_size}'
+                response['Accept-Ranges'] = 'bytes'
+                f.close()
+                return response
+
+        response = FileResponse(open(fullpath, 'rb'), content_type=content_type)
+        response['Accept-Ranges'] = 'bytes'
+        response['Content-Length'] = file_size
+        return response
+
     urlpatterns += [
-        re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
+        re_path(r'^media/(?P<path>.*)$', serve_media),
     ]
