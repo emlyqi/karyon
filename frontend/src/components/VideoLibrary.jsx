@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import api from '../api'
+import { mediaUrl } from '../mediaUrl'
 
 export default function VideoLibrary({ videos, onSelectVideo, onRefresh }) {
   const [selectedIds, setSelectedIds] = useState([])
@@ -130,7 +131,7 @@ export default function VideoLibrary({ videos, onSelectVideo, onRefresh }) {
               <div className="aspect-video bg-gray-900 flex items-center justify-center overflow-hidden">
                 {video.file ? (
                   <video
-                    src={video.file}
+                    src={mediaUrl(video.file)}
                     className="w-full h-full object-cover"
                     preload="metadata"
                     muted

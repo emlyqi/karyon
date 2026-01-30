@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import api from '../api'
+import { mediaUrl } from '../mediaUrl'
 import ReactMarkdown from 'react-markdown'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
@@ -201,7 +202,7 @@ export default function VideoChat({ video, onBack }) {
         <div className="aspect-video bg-gray-900 overflow-hidden border border-gray-200 shadow-boxy">
           <video
             ref={playerRef}
-            src={video.file}
+            src={mediaUrl(video.file)}
             controls
             className="w-full h-full object-contain"
           />

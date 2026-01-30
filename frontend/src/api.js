@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_URL || '/api',
 })
 
 // Attach access token to every request
@@ -25,7 +25,7 @@ api.interceptors.response.use(
       const tokens = JSON.parse(localStorage.getItem('tokens') || 'null')
       if (tokens?.refresh) {
         try {
-          const res = await axios.post('/api/auth/token/refresh/', {
+          const res = await axios.post(`${import.meta.env.VITE_API_URL || '/api'}/auth/token/refresh/`, {
             refresh: tokens.refresh,
           })
 
