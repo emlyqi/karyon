@@ -138,8 +138,9 @@ CORS_ALLOW_CREDENTIALS = True
 # CSRF settings for API
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
-    "http://localhost:3001", 
+    "http://localhost:3001",
     "http://localhost:5173",
+    "https://karyon-production.up.railway.app",
 ]
 
 # REST Framework settings

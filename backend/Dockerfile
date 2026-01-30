@@ -27,4 +27,4 @@ RUN mkdir -p /app/media
 
 EXPOSE 8000
 
-CMD gunicorn karyon.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 300
+CMD python manage.py migrate --noinput && gunicorn karyon.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 300
