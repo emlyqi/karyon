@@ -1,6 +1,8 @@
 # Karyon
 
-Chat with your lecture recordings [or really just any video] 
+Chat with your lecture recordings [or really just any video]
+
+Video demo: https://youtu.be/U8iJKj3dahg 
 
 ## Setup
 
