@@ -193,7 +193,7 @@ export default function VideoLibrary({ videos, onSelectVideo, onRefresh }) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {getStatusBadge(video.status)}
-                  {video.status === 'failed' && video.error_message && (
+                  {video.status === 'failed' && video.error_message?.includes('API key') && (
                     <span className="text-xs text-red-400">No API key configured</span>
                   )}
                 </div>
