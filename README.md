@@ -2,7 +2,7 @@
 
 Chat with your lecture recordings [or really just any video]
 
-Video demo: https://youtu.be/U8iJKj3dahg 
+https://github.com/user-attachments/assets/00850ca5-67e0-454d-b86a-62d2e64a7d76
 
 ## Setup
 
